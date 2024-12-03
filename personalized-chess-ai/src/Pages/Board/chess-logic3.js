@@ -1,22 +1,26 @@
 // Using dynamic import for Stockfish
+import { Chess } from 'chess.js';
+
 let stockfish = null;
 let engineReady = false;
+let currentElo = null;
 
 export async function initializeEngine(botName = 'Bot 3', customElo = null) {
     if (stockfish) {
         stockfish.terminate();
     }
+    
+    engineReady = false;
     try {
         // Load Stockfish from the public folder
         stockfish = new Worker('/stockfish/stockfish.js');
         
         stockfish.onmessage = (event) => {
             const line = event.data;
-            console.log('Stockfish:', line); // Log all Stockfish messages
+            console.log('Stockfish:', line);
             
             if (line === 'uciok') {
                 engineReady = true;
-                // Configure Stockfish based on bot name or custom ELO
                 let elo;
                 if (customElo !== null) {
                     elo = customElo;
@@ -35,40 +39,34 @@ export async function initializeEngine(botName = 'Bot 3', customElo = null) {
                     elo = eloRatings[botName] || 1500;
                 }
                 
-                // Ensure proper initialization sequence
+                currentElo = elo;
+                console.log("Setting ELO to:", currentElo);
+                
+                // Initialize engine with minimal memory settings
                 stockfish.postMessage('ucinewgame');
                 stockfish.postMessage('setoption name UCI_LimitStrength value true');
-                stockfish.postMessage(`setoption name UCI_Elo value ${elo}`);
+                stockfish.postMessage(`setoption name UCI_Elo value ${Math.min(elo, 1500)}`); // Cap ELO for consistency
+                stockfish.postMessage('setoption name Hash value 1');  // Minimum hash size
+                stockfish.postMessage('setoption name Threads value 1');
+                stockfish.postMessage('setoption name MultiPV value 1');
                 
-                // Set very low skill level for low rated bots
+                // Configure skill levels with minimal settings
                 let skillLevel;
-                if (elo < 500) {
-                    skillLevel = 0;
-                } else if (elo < 1000) {
-                    skillLevel = Math.floor((elo - 500) / 250); // Even more gradual increase
-                } else if (elo < 1500) {
-                    skillLevel = Math.floor((elo - 1000) / 150) + 2;
+                if (elo <= 500) {
+                    skillLevel = 0;  // Lowest possible skill
+                    stockfish.postMessage('setoption name Contempt value -200');
+                } else if (elo <= 1000) {
+                    skillLevel = 2;  // Very low skill
+                    stockfish.postMessage('setoption name Contempt value -100');
+                } else if (elo <= 1500) {
+                    skillLevel = 5;  // Moderate skill
+                    stockfish.postMessage('setoption name Contempt value -50');
                 } else {
-                    skillLevel = Math.min(20, Math.floor((elo - 1500) / 100) + 5);
+                    skillLevel = Math.min(20, Math.floor((elo - 1500) / 100) + 10);
                 }
                 
                 stockfish.postMessage(`setoption name Skill Level value ${skillLevel}`);
-                
-                // Log the settings being applied
                 console.log(`Bot: ${botName}, ELO: ${elo}, Skill Level: ${skillLevel}`);
-                
-                // Additional settings for weaker play
-                if (elo < 1000) {
-                    stockfish.postMessage('setoption name Contempt value 0');
-                    stockfish.postMessage('setoption name MultiPV value 1');
-                    stockfish.postMessage('setoption name Slow Mover value 10');
-                }
-                
-                // Set a time constraint for lower-rated bots
-                if (elo <= 500) {
-                    stockfish.postMessage('setoption name Move Overhead value 1000'); // 1 second overhead
-                    stockfish.postMessage('setoption name Minimum Thinking Time value 500'); // Minimum 0.5 second thinking time
-                }
                 
                 stockfish.postMessage('isready');
             }
@@ -81,22 +79,64 @@ export async function initializeEngine(botName = 'Bot 3', customElo = null) {
 }
 
 export function getBestMove(fen, callback) {
-    if (!stockfish) {
-        initializeEngine();
-    }
+    // Always reinitialize engine to maintain consistent play
+    initializeEngine().then(() => {
+        const checkReady = setInterval(() => {
+            if (engineReady) {
+                clearInterval(checkReady);
+                makeRandomMove();
+            }
+        }, 100);
+    });
 
-    const listener = (e) => {
-        const line = e.data;
-        if (line.startsWith('bestmove')) {
-            const move = line.split(' ')[1];
-            stockfish.removeEventListener('message', listener);
-            callback(move);
+    function makeRandomMove() {
+        const chess = new Chess(fen);
+        const moves = chess.moves({ verbose: true });
+        
+        // Increased random move probability for lower ELOs
+        const randomThreshold = 
+            currentElo <= 500 ? 0.60 :   // 60% chance of random moves
+            currentElo <= 1000 ? 0.35 :  // 35% chance of random moves
+            currentElo <= 1500 ? 0.15 :  // 15% chance of random moves
+            0;
+
+        if (Math.random() < randomThreshold) {
+            const randomMove = moves[Math.floor(Math.random() * moves.length)].san;
+            console.log(`Making random move (${currentElo} ELO):`, randomMove);
+            callback(randomMove);
+            return;
         }
-    };
 
-    stockfish.addEventListener('message', listener);
-    stockfish.postMessage('position fen ' + fen);
-    stockfish.postMessage('go movetime 2000'); // 2 seconds think time
+        // Simplified engine move logic
+        const listener = (e) => {
+            const line = e.data;
+            if (line.startsWith('bestmove')) {
+                const move = line.split(' ')[1];
+                stockfish.removeEventListener('message', listener);
+                callback(move);
+            }
+        };
+
+        stockfish.addEventListener('message', listener);
+        stockfish.postMessage('position fen ' + fen);
+        
+        // Reduced think times for lower ELOs
+        const thinkTime = 
+            currentElo <= 500 ? 100 :   // Very quick decisions
+            currentElo <= 1000 ? 200 :  // Quick decisions
+            currentElo <= 1500 ? 300 :  // Moderate thinking
+            500;                        // Full thinking time
+        
+        stockfish.postMessage(`go movetime ${thinkTime}`);
+    }
+}
+
+export function findBestMove(chess) {
+    return new Promise((resolve) => {
+        getBestMove(chess.fen(), (move) => {
+            resolve(move);
+        });
+    });
 }
 
 export function stopEngine() {
@@ -125,16 +165,7 @@ export function evaluatePosition(fen, callback) {
 
     stockfish.addEventListener('message', listener);
     stockfish.postMessage('position fen ' + fen);
-    stockfish.postMessage('go depth 10');
-}
-
-// Function to match the interface expected by BoardPage.jsx
-export function findBestMove(chess) {
-    return new Promise((resolve) => {
-        getBestMove(chess.fen(), (move) => {
-            resolve(move);
-        });
-    });
+    stockfish.postMessage('go depth 5');
 }
 
 // Clean up when component unmounts
