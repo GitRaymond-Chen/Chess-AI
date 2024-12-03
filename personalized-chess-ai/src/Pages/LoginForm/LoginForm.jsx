@@ -8,6 +8,8 @@ const LoginForm = () => {
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [firstname, setFirstName] = useState("");
+  const [lastname, setLastName] = useState("");
   const [username, setUsername] = useState('');
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
@@ -23,13 +25,15 @@ const LoginForm = () => {
     // Register
     else if (!isLogin) {
       try {
-        const response = await fetch("https://movemate.database.windows.net/create-account", {
+        const response = await fetch("http://127.0.0.1:5000/create-account", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
             username,
+            firstname,
+            lastname,
             email,
             password,
           }),
@@ -42,6 +46,8 @@ const LoginForm = () => {
           setIsLogin(true);
 
           // handle redirect
+          console.log("Login successful");
+          alert("Login successful");
         } else {
           const errorData = await response.json();
           alert(`Error: ${errorData.error}`);
@@ -54,7 +60,7 @@ const LoginForm = () => {
     // Login
     else if (isLogin) {
       try {
-        const response = await fetch("https://movemate.database.windows.net/login", {
+        const response = await fetch("http://127.0.0.1:5000/login", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -72,6 +78,7 @@ const LoginForm = () => {
 
           // handle valid response / redirect (WIP)
           console.log("Login successful");
+          alert("Login successful");
         } else {
           const errorData = await response.json();
           alert(`Error: ${errorData.error}`);
@@ -165,17 +172,39 @@ const LoginForm = () => {
                 type="text"
                 placeholder="Username"
                 required
-                onChange={e => setUsername(e.target.value)}
+                onChange={(e) => setUsername(e.target.value)}
               />
               <FaUser className="icon" />
             </div>
+          )}
+          {!isLogin && (
+            <>
+              <div className="input-box">
+                <input
+                  type="text"
+                  placeholder="First Name"
+                  required
+                  onChange={(e) => setFirstName(e.target.value)}
+                />
+                <FaUser className="icon" />
+              </div>
+              <div className="input-box">
+                <input
+                  type="text"
+                  placeholder="Last Name"
+                  required
+                  onChange={(e) => setLastName(e.target.value)}
+                />
+                <FaUser className="icon" />
+              </div>
+            </>
           )}
           <div className="input-box">
             <input
               type="text"
               placeholder="Email"
               required
-              onChange={e => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
             />
             <FaUser className="icon" />
           </div>
@@ -184,7 +213,7 @@ const LoginForm = () => {
               type="password"
               placeholder="Password"
               required
-              onChange={e => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
             />
             <FaLock className="icon" />
           </div>
@@ -194,7 +223,7 @@ const LoginForm = () => {
                 type="password"
                 placeholder="Confirm Password"
                 required
-                onChange={e => setConfirmPassword(e.target.value)}
+                onChange={(e) => setConfirmPassword(e.target.value)}
               />
               <FaLock className="icon" />
             </div>
