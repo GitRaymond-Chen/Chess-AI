@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import "./Profile.css";
 import Header from "../../Pages/Header/Header";
@@ -7,6 +7,31 @@ import avatar_default from "./avatar_default.png";
 const Profile = () => {
     const [avatar, setAvatar] = useState(avatar_default);
     const fileInputRef = useRef(null);
+    const [elo, setElo] = useState(null); // State to store the fetched ELO
+    const [error, setError] = useState(null);
+  
+    useEffect(() => {
+      const fetchUserElo = async () => {
+        try {
+          const response = await fetch("http://localhost:5000/user-elo", { // Replace with your backend URL
+            method: "GET",
+            credentials: "include", // Include credentials for session-based authentication
+          });
+  
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Failed to fetch user ELO.");
+          }
+  
+          const data = await response.json();
+          setElo(data.elo); // Set the fetched ELO in state
+        } catch (err) {
+          setError(err.message);
+        }
+      };
+  
+      fetchUserElo();
+    }, []);
 
     // Sample ELO rating data - replace with actual data from your backend
     const eloData = [
@@ -53,9 +78,9 @@ const Profile = () => {
                         style={{ display: "none" }}
                         onChange={handleImageChange}
                     />
-                    <h2 className="profile-elo">Current ELO: {eloData[eloData.length - 1].rating}</h2>
+                    <h2 className="profile-elo">Current ELO: {elo}</h2>
                 </div>
-                
+
                 <div className="profile-graph">
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart
@@ -69,7 +94,7 @@ const Profile = () => {
                         >
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="date" />
-                            <YAxis 
+                            <YAxis
                                 domain={['dataMin - 100', 'dataMax + 100']}
                                 label={{ value: 'ELO Rating', angle: -90, position: 'insideLeft' }}
                             />

@@ -262,5 +262,22 @@ def fetch_bots(user_id):
     conn.close()
     return jsonify({"bots": bot_list}), 200
 
+# Grab user's elo
+@app.route('/user-elo/<string:username>', methods=['GET'])
+def get_user_elo(username):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Fetch Elo rating for the user
+    cursor.execute("SELECT elo FROM Users WHERE username = ?", username)
+    user_elo = cursor.fetchone()
+
+    if not user_elo:
+        conn.close()
+        return jsonify({"error": "User not found."}), 404
+
+    conn.close()
+    return jsonify({"username": username, "elo": user_elo[0]}), 200
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

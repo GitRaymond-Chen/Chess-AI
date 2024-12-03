@@ -25,7 +25,7 @@ conn = pyodbc.connect(
 )
 cursor = conn.cursor()
 
-# Create Users table (if not already created)
+# Create Users table with elo column
 cursor.execute("""
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Users' AND xtype='U')
 CREATE TABLE Users (
@@ -34,10 +34,14 @@ CREATE TABLE Users (
     firstname VARCHAR(50) NOT NULL,
     lastname VARCHAR(50) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL
+    password VARCHAR(255) NOT NULL,
+    elo INT DEFAULT 1500 NOT NULL
 )
+ELSE
+IF NOT EXISTS (SELECT * FROM syscolumns WHERE id=OBJECT_ID('Users') AND name='elo')
+ALTER TABLE Users ADD elo INT DEFAULT 1500 NOT NULL
 """)
-print("Users table ensured.")
+print("Users table ensured with elo column.")
 conn.commit()
 
 # Create Games table (if not already created)
