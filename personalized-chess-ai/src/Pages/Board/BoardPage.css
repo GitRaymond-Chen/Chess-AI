@@ -193,18 +193,20 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
     min-height: 0;
     font-size: 1em;
 }
 
 .message {
-    padding: 8px 12px;
+    padding: 10px 14px;
     border-radius: 6px;
-    max-width: 85%;
+    max-width: 90%;
     word-wrap: break-word;
+    word-break: break-word;
     font-size: 1em;
-    line-height: 1.4;
+    line-height: 1.5;
+    white-space: pre-wrap;
 }
 
 .message.user {
@@ -269,7 +271,6 @@
     margin-top: 4px;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
     gap: 4px;
 }
 

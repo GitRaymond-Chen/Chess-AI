@@ -59,18 +59,18 @@ const BoardPage = () => {
 
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-4",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
-            content: "You are a chess coach. Analyze positions and provide helpful advice. Be concise and specific."
+            content: "You are a chess coach. Analyze positions and provide helpful advice. Be very concise and specific."
           },
           {
             role: "user",
             content: `Current chess position (FEN): ${chess.fen()}\nUser message: ${userMessage}`
           }
         ],
-        max_tokens: 150
+        max_tokens: 500
       });
 
       // Testing
@@ -78,7 +78,7 @@ const BoardPage = () => {
       const coachResponse = response.choices[0].message.content;
       setMessages(prev => [
         ...prev,
-        ...(isAnalysis ? [{ sender: "User", text: "Please analyze the current position." }] : []),
+        ...(isAnalysis ? [{ sender: "User", text: "Please analyze the current position. Be very concise and specific." }] : []),
         { sender: "Coach", text: coachResponse }
       ]);
     } catch (error) {
