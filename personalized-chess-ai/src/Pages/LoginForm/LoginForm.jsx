@@ -4,7 +4,6 @@ import { FaUser, FaLock } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 
 const LoginForm = () => {
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -34,18 +33,15 @@ const LoginForm = () => {
             username,
             firstname,
             lastname,
-            email,
+            email: username, // Treat the username as email here if necessary
             password,
           }),
         });
 
-        // Handle the response
         if (response.ok) {
           const result = await response.json();
           alert(result.message);
           setIsLogin(true);
-
-          // handle redirect
           navigate("/board");
         } else {
           const errorData = await response.json();
@@ -65,17 +61,14 @@ const LoginForm = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            username,
+            username, // Use username for login
             password,
           }),
         });
 
-        // Handle the response
         if (response.ok) {
           const result = await response.json();
           alert(result.message);
-
-          // handle valid response / redirect (WIP)
           navigate("/board");
         } else {
           const errorData = await response.json();
@@ -95,13 +88,9 @@ const LoginForm = () => {
 
   const handleResetSubmit = async (e) => {
     e.preventDefault();
-    // Here you would typically make an API call to your backend
-    // to handle the password reset request
     try {
-      // Simulating API call
       console.log("Password reset requested for:", resetEmail);
       setResetSent(true);
-      // Reset form after 3 seconds and go back to login
       setTimeout(() => {
         setResetSent(false);
         setIsForgotPassword(false);
@@ -164,17 +153,26 @@ const LoginForm = () => {
       <h2 className="title">{isLogin ? "Sign in to Movemate" : "Create Account"}</h2>
       <div className="wrapper">
         <form onSubmit={handleSubmit}>
-          {!isLogin && (
-            <div className="input-box">
-              <input
-                type="text"
-                placeholder="Username"
-                required
-                onChange={(e) => setUsername(e.target.value)}
-              />
-              <FaUser className="icon" />
-            </div>
-          )}
+          <div className="input-box">
+            <input
+              type="text"
+              placeholder="Username"
+              required
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+            <FaUser className="icon" />
+          </div>
+          <div className="input-box">
+            <input
+              type="password"
+              placeholder="Password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <FaLock className="icon" />
+          </div>
           {!isLogin && (
             <>
               <div className="input-box">
@@ -182,6 +180,7 @@ const LoginForm = () => {
                   type="text"
                   placeholder="First Name"
                   required
+                  value={firstname}
                   onChange={(e) => setFirstName(e.target.value)}
                 />
                 <FaUser className="icon" />
@@ -191,40 +190,22 @@ const LoginForm = () => {
                   type="text"
                   placeholder="Last Name"
                   required
+                  value={lastname}
                   onChange={(e) => setLastName(e.target.value)}
                 />
                 <FaUser className="icon" />
               </div>
+              <div className="input-box">
+                <input
+                  type="password"
+                  placeholder="Confirm Password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+                <FaLock className="icon" />
+              </div>
             </>
-          )}
-          <div className="input-box">
-            <input
-              type="text"
-              placeholder="Email"
-              required
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <FaUser className="icon" />
-          </div>
-          <div className="input-box">
-            <input
-              type="password"
-              placeholder="Password"
-              required
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <FaLock className="icon" />
-          </div>
-          {!isLogin && (
-            <div className="input-box">
-              <input
-                type="password"
-                placeholder="Confirm Password"
-                required
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-              <FaLock className="icon" />
-            </div>
           )}
           {isLogin && (
             <div className="remember-forgot">
