@@ -1,6 +1,7 @@
-Flask
+flask
 flask-cors
-python-dotenv
 pyodbc
-torch
+python-dotenv
 chess
+torch
+gunicorn
