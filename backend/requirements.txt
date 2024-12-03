@@ -1,5 +1,6 @@
 Flask
+flask-cors
 python-dotenv
 pyodbc
 torch
-python-chess
+chess
