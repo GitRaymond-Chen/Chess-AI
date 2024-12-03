@@ -9,7 +9,7 @@ import Header from "../Header/Header";
 import OpenAI from 'openai';
 
 const bots = [
-  { name: 'Training Bot', photo: require('./bot_pics/bot1.png'), logic: chessLogic3, label: 'Personalized Training Bot' },
+  { name: 'Training Bot', photo: require('./bot_pics/test.png'), logic: chessLogic3, label: 'Personalized Training Bot' },
   { name: 'Rookinator', photo: require('./bot_pics/bot1.png'), logic: chessLogic1, label: 'Strategic Bot (Sicilian)' },
   { name: 'Pawnstar', photo: require('./bot_pics/bot2.png'), logic: chessLogic2, label: 'Random Moves Bot' },
   { name: 'Knight Fury', photo: require('./bot_pics/bot3.png'), logic: chessLogic3, label: 'Stockfish 500' },
@@ -39,8 +39,9 @@ const BoardPage = () => {
   const [isTraining, setIsTraining] = useState(false);
   const [trainingGames, setTrainingGames] = useState(0);
   const [trainingResults, setTrainingResults] = useState([]);
-  const [predictedElo, setPredictedElo] = useState(null);
-  const [eloRange, setEloRange] = useState({ min: 0, max: 3000, current: 1500 });
+  const [currentRating, setCurrentRating] = useState(1500);
+  const [ratingMin, setRatingMin] = useState(0);
+  const [ratingMax, setRatingMax] = useState(3000);
 
   // Initialize OpenAI with configuration
   const openai = new OpenAI({
@@ -195,44 +196,122 @@ const BoardPage = () => {
     }
   }, []);  // Run once when component mounts
 
-  useEffect(() => {
-    if (gameOver && isTraining && trainingGames < 5) {
-      // Update ELO range based on game result
-      const newRange = { ...eloRange };
-      if (winner === 'player') {
-        newRange.min = eloRange.current;
-      } else {
-        newRange.max = eloRange.current;
-      }
-      newRange.current = Math.floor((newRange.min + newRange.max) / 2);
-      
-      setEloRange(newRange);
-      setTrainingResults([...trainingResults, { elo: eloRange.current, result: winner === 'player' ? 'win' : 'loss' }]);
-      setTrainingGames(trainingGames + 1);
-
-      if (trainingGames === 4) {
-        // Training complete, calculate predicted ELO
-        const finalElo = Math.floor((newRange.min + newRange.max) / 2);
-        setPredictedElo(finalElo);
-        setIsTraining(false);
-      } else {
-        // Start next training game
-        setTimeout(() => {
-          resetGame();
-          chessLogic3.initializeEngine('Training Bot', newRange.current);
-        }, 1000);
-      }
-    }
-  }, [gameOver, isTraining, trainingGames]);
-
-  const startTraining = () => {
+  const startTraining = async () => {
+    if (isTraining) return;
+    
+    // Initialize training session
     setIsTraining(true);
     setTrainingGames(0);
     setTrainingResults([]);
-    setPredictedElo(null);
-    setEloRange({ min: 0, max: 3000, current: 1500 });
-    resetGame();
-    chessLogic3.initializeEngine('Training Bot', 1500);
+    setCurrentRating(1500);
+    setRatingMin(0);
+    setRatingMax(3000);
+    
+    // Start first training game
+    await startNewTrainingGame(1500);
+  };
+
+  const startNewTrainingGame = async (rating) => {
+    try {
+      // Initialize engine with specified rating
+      await chessLogic3.initializeEngine('Training Bot', rating);
+      
+      // Reset the game state
+      const newGame = new Chess();
+      setChess(newGame);
+      setFen(newGame.fen());
+      setGameOver(false);
+      setWinner(null);
+      setMoveHistory([]);
+      
+      // Randomly assign colors
+      const newPlayerColor = Math.random() < 0.5 ? 'white' : 'black';
+      setPlayerColor(newPlayerColor);
+      setIsPlayerTurn(newPlayerColor === 'white');
+
+      // If bot plays first, make its move
+      if (newPlayerColor === 'black') {
+        setTimeout(makeBotMove, 500);
+      }
+    } catch (error) {
+      console.error('Error starting new training game:', error);
+      setIsTraining(false);
+      alert('There was an error during training. Please try again.');
+    }
+  };
+
+  // Effect to handle game completion during training
+  useEffect(() => {
+    const handleTrainingGameEnd = async () => {
+      if (!isTraining || !gameOver) return;
+
+      try {
+        // Calculate result
+        const result = winner === 'player' ? 1 : winner === 'draw' ? 0.5 : 0;
+        const newResults = [...trainingResults, result];
+        setTrainingResults(newResults);
+        
+        const newGameCount = trainingGames + 1;
+        setTrainingGames(newGameCount);
+
+        if (newGameCount >= 5) {
+          // Training complete
+          const finalRating = Math.round((ratingMin + ratingMax) / 2);
+          setIsTraining(false);
+          
+          // Create the final personalized bot
+          await chessLogic3.initializeEngine('Training Bot', finalRating);
+          
+          alert(`Training complete!\n\nYour estimated rating: ${finalRating}\n\nA new bot has been created matching your skill level. You can now play against it normally.`);
+          
+          // Reset the game for normal play
+          const newGame = new Chess();
+          setChess(newGame);
+          setFen(newGame.fen());
+          setGameOver(false);
+          setWinner(null);
+          setMoveHistory([]);
+          setPlayerColor('white');
+          setIsPlayerTurn(true);
+        } else {
+          // Calculate new rating for next game
+          let newRating;
+          if (result > 0.5) { // Player won - try slightly lower rating
+            setRatingMax(currentRating);
+            newRating = Math.round((ratingMin + currentRating) / 2);
+          } else { // Player lost - bot too strong, decrease rating range and current rating
+            setRatingMax(currentRating);
+            const newMax = currentRating;
+            const newMin = Math.max(0, ratingMin);
+            setRatingMin(newMin);
+            newRating = Math.round((newMin + newMax) / 2);
+          }
+          setCurrentRating(newRating);
+          
+          // Start next game after a delay
+          setTimeout(() => startNewTrainingGame(newRating), 1500);
+        }
+      } catch (error) {
+        console.error('Error handling training game end:', error);
+        setIsTraining(false);
+        alert('There was an error during training. Please try again.');
+      }
+    };
+
+    handleTrainingGameEnd();
+  }, [gameOver, isTraining]);
+
+  const exitTraining = () => {
+    setIsTraining(false);
+    // Reset the game state
+    const newGame = new Chess();
+    setChess(newGame);
+    setFen(newGame.fen());
+    setGameOver(false);
+    setWinner(null);
+    setMoveHistory([]);
+    setPlayerColor('white');
+    setIsPlayerTurn(true);
   };
 
   const handleMove = (move) => {
@@ -296,8 +375,8 @@ const BoardPage = () => {
     setGameOver(false);
     setWinner(null);
     setMessages([]);
-    // If it's the Sicilian bot (Bot 1), player is always white, otherwise random
-    const newPlayerColor = bot.name === 'Bot 1' ? 'white' : (Math.random() < 0.5 ? 'white' : 'black');
+    // If it's the Sicilian bot (Rookinator), player is always white, otherwise random
+    const newPlayerColor = bot.name === 'Rookinator' ? 'white' : (Math.random() < 0.5 ? 'white' : 'black');
     setPlayerColor(newPlayerColor);
     // Set isPlayerTurn based on player color - true if white, false if black
     setIsPlayerTurn(newPlayerColor === 'white');
@@ -430,12 +509,14 @@ const BoardPage = () => {
                   </span>
                 )}
               </button>
-              <button
-                onClick={startTraining}
-                className="train-button"
-              >
-                Start Training
-              </button>
+              {selectedBot === 'Training Bot' && (
+                <button
+                  onClick={startTraining}
+                  className="train-button"
+                >
+                  Start Training
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -445,10 +526,33 @@ const BoardPage = () => {
         <p>Current turn: {isPlayerTurn ? `Your turn (${playerColor})` : `Bot's turn (${playerColor === 'white' ? 'black' : 'white'})`}</p>
         <p>FEN: {fen}</p>
         {isTraining && (
-          <div>
-            <p>Training in progress...</p>
-            <p>Games played: {trainingGames}</p>
-            <p>Predicted ELO: {predictedElo}</p>
+          <div className="training-status">
+            <div className="training-info">
+              <h3>Training in Progress</h3>
+              <p>Play against the bot to determine your rating. The bot's strength will adjust based on your performance.</p>
+              <div className="training-stats">
+                <p>Games completed: {trainingGames}/5</p>
+                <p>Current bot rating: {currentRating}</p>
+                <p>Rating range: {ratingMin} - {ratingMax}</p>
+                <p>Results: {trainingResults.map((r, i) => 
+                  r === 1 ? "Win" : r === 0.5 ? "Draw" : "Loss").join(", ")
+                }</p>
+                <button
+                  onClick={exitTraining}
+                  className="exit-training-button"
+                  style={{
+                    backgroundColor: '#dc3545',
+                    color: 'white',
+                    padding: '8px 16px',
+                    borderRadius: '4px',
+                    marginTop: '10px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Exit Training
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
