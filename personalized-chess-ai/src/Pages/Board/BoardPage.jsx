@@ -37,11 +37,12 @@ const BoardPage = () => {
   const [winner, setWinner] = useState(null);
   const [playerColor, setPlayerColor] = useState(Math.random() < 0.5 ? 'white' : 'black');
   const [isTraining, setIsTraining] = useState(false);
-  const [trainingGames, setTrainingGames] = useState(0);
+  const [trainingGames, setTrainingGames] = useState([]);
   const [trainingResults, setTrainingResults] = useState([]);
   const [currentRating, setCurrentRating] = useState(1500);
   const [ratingMin, setRatingMin] = useState(0);
   const [ratingMax, setRatingMax] = useState(3000);
+  const [botsList, setBotsList] = useState(bots);
 
   // Initialize OpenAI with configuration
   const openai = new OpenAI({
@@ -108,7 +109,7 @@ const BoardPage = () => {
     console.log("Valid moves:", newChess.moves({ verbose: true }));
 
     // Get the selected bot's logic
-    const selectedBotLogic = bots.find(bot => bot.name === selectedBot)?.logic || chessLogic1;
+    const selectedBotLogic = botsList.find(bot => bot.name === selectedBot)?.logic || chessLogic1;
 
     try {
       let bestMove;
@@ -164,7 +165,7 @@ const BoardPage = () => {
     }
     const endTime = performance.now();
     console.log(`Bot thinking time: ${endTime - startTime} ms`);
-  }, [chess, moveHistory, selectedBot]);
+  }, [chess, moveHistory, selectedBot, botsList]);
 
   useEffect(() => {
     if (!isPlayerTurn) {
@@ -201,7 +202,7 @@ const BoardPage = () => {
     
     // Initialize training session
     setIsTraining(true);
-    setTrainingGames(0);
+    setTrainingGames([]);
     setTrainingResults([]);
     setCurrentRating(1500);
     setRatingMin(0);
@@ -247,44 +248,55 @@ const BoardPage = () => {
 
       try {
         // Calculate result
-        const result = winner === 'player' ? 1 : winner === 'draw' ? 0.5 : 0;
+        const result = winner === 'player' ? 'win' : winner === 'draw' ? 'draw' : 'loss';
         const newResults = [...trainingResults, result];
         setTrainingResults(newResults);
         
-        const newGameCount = trainingGames + 1;
-        setTrainingGames(newGameCount);
+        const newGameCount = trainingGames.length + 1;
+        setTrainingGames([...trainingGames, result]);
 
         if (newGameCount >= 5) {
-          // Training complete
-          const finalRating = Math.round((ratingMin + ratingMax) / 2);
+          // Use the final currentRating as the bot's ELO
+          const finalElo = currentRating;
+          
+          // Generate a personalized bot with the final ELO
+          let botPhoto;
+          try {
+            botPhoto = require('./bot_pics/new_bot.png');
+          } catch (err) {
+            console.error('Failed to load new bot image:', err);
+            // Fallback to a default bot image from the existing bots
+            botPhoto = bots[0].photo;
+          }
+
+          const personalizedBot = {
+            name: 'Your Bot',
+            photo: botPhoto,
+            logic: chessLogic3,
+            label: `Personalized Bot (${finalElo.toFixed(0)})`,
+            elo: finalElo
+          };
+          setBotsList([...botsList, personalizedBot]);
+          
+          // Notify user
+          setMessages(prev => [...prev, { 
+            sender: "Coach", 
+            text: `Training complete! Your personalized bot has been created with an ELO of ${finalElo.toFixed(0)}, matching your current skill level.`
+          }]);
+          
+          // End training mode
           setIsTraining(false);
-          
-          // Create the final personalized bot
-          await chessLogic3.initializeEngine('Training Bot', finalRating);
-          
-          alert(`Training complete!\n\nYour estimated rating: ${finalRating}\n\nA new bot has been created matching your skill level. You can now play against it normally.`);
-          
-          // Reset the game for normal play
-          const newGame = new Chess();
-          setChess(newGame);
-          setFen(newGame.fen());
-          setGameOver(false);
-          setWinner(null);
-          setMoveHistory([]);
-          setPlayerColor('white');
-          setIsPlayerTurn(true);
         } else {
           // Calculate new rating for next game
           let newRating;
-          if (result > 0.5) { // Player won - try slightly lower rating
+          if (result === 'win') { // Player won - increase rating
+            setRatingMin(currentRating);
+            newRating = Math.round((currentRating + ratingMax) / 2);
+          } else if (result === 'loss') { // Player lost - decrease rating
             setRatingMax(currentRating);
             newRating = Math.round((ratingMin + currentRating) / 2);
-          } else { // Player lost - bot too strong, decrease rating range and current rating
-            setRatingMax(currentRating);
-            const newMax = currentRating;
-            const newMin = Math.max(0, ratingMin);
-            setRatingMin(newMin);
-            newRating = Math.round((newMin + newMax) / 2);
+          } else { // Draw - keep rating the same
+            newRating = currentRating;
           }
           setCurrentRating(newRating);
           
@@ -439,7 +451,7 @@ const BoardPage = () => {
 
         <div className="rightside-parts">
           <div className="bot-list">
-            {bots.map((bot, index) => (
+            {botsList.map((bot, index) => (
                 <div
                   key={index}
                   className={`bot-item ${selectedBot === bot.name ? 'selected' : ''}`}
@@ -537,12 +549,32 @@ const BoardPage = () => {
               <h3>Training in Progress</h3>
               <p>Play against the bot to determine your rating. The bot's strength will adjust based on your performance.</p>
               <div className="training-stats">
-                <p>Games completed: {trainingGames}/5</p>
+                <p>Games completed: {trainingGames.length}/5</p>
                 <p>Current bot rating: {currentRating}</p>
                 <p>Rating range: {ratingMin} - {ratingMax}</p>
                 <p>Results: {trainingResults.map((r, i) => 
-                  r === 1 ? "Win" : r === 0.5 ? "Draw" : "Loss").join(", ")
+                  r === 'win' ? "Win" : r === 'draw' ? "Draw" : "Loss").join(", ")
                 }</p>
+                <div className="debug-buttons" style={{ marginTop: '10px' }}>
+                  <button
+                    onClick={() => {
+                      setWinner('player');
+                      setGameOver(true);
+                    }}
+                    style={{ marginRight: '10px', backgroundColor: 'green', color: 'white' }}
+                  >
+                    Debug: Win
+                  </button>
+                  <button
+                    onClick={() => {
+                      setWinner('bot');
+                      setGameOver(true);
+                    }}
+                    style={{ backgroundColor: 'red', color: 'white' }}
+                  >
+                    Debug: Lose
+                  </button>
+                </div>
                 <button
                   onClick={exitTraining}
                   className="exit-training-button"
