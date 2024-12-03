@@ -9,7 +9,7 @@ import Header from "../Header/Header";
 import OpenAI from 'openai';
 
 const bots = [
-  { name: 'Training Bot', photo: require('./bot_pics/test.png'), logic: chessLogic3, label: 'Personalized Training Bot' },
+  { name: 'Training Bot', photo: require('./bot_pics/test.png'), logic: chessLogic3, label: 'The training ground' },
   { name: 'Rookinator', photo: require('./bot_pics/bot1.png'), logic: chessLogic1, label: 'Strategic Bot (Sicilian)' },
   { name: 'Pawnstar', photo: require('./bot_pics/bot2.png'), logic: chessLogic2, label: 'Random Moves Bot' },
   { name: 'Knight Fury', photo: require('./bot_pics/bot3.png'), logic: chessLogic3, label: 'Stockfish 500' },
