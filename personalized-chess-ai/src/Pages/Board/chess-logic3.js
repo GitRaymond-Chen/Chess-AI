@@ -12,6 +12,8 @@ export async function initializeEngine(botName = 'Bot 3', customElo = null) {
         
         stockfish.onmessage = (event) => {
             const line = event.data;
+            console.log('Stockfish:', line); // Log all Stockfish messages
+            
             if (line === 'uciok') {
                 engineReady = true;
                 // Configure Stockfish based on bot name or custom ELO
@@ -20,23 +22,54 @@ export async function initializeEngine(botName = 'Bot 3', customElo = null) {
                     elo = customElo;
                 } else {
                     const eloRatings = {
-                        'Bot 3': 500,
-                        'Bot 4': 1000,
-                        'Bot 5': 1250,
-                        'Bot 6': 1500,
-                        'Bot 7': 1750,
-                        'Bot 8': 2000,
-                        'Bot 9': 2250,
-                        'Bot 10': 2500
+                        'Training Bot': 1500,
+                        'Knight Fury': 500,
+                        'Bishop Blitz': 1000,
+                        'Queen Quest': 1250,
+                        'King Crusher': 1500,
+                        'Castling Conqueror': 1750,
+                        'Pawnstorm': 2000,
+                        'Checkmate Champ': 2250,
+                        'Endgame Expert': 2500
                     };
                     elo = eloRatings[botName] || 1500;
                 }
                 
-                const skillLevel = Math.min(20, Math.floor((elo - 500) / 100)); // Scale skill level with ELO
-                
-                stockfish.postMessage(`setoption name Skill Level value ${skillLevel}`);
+                // Ensure proper initialization sequence
+                stockfish.postMessage('ucinewgame');
                 stockfish.postMessage('setoption name UCI_LimitStrength value true');
                 stockfish.postMessage(`setoption name UCI_Elo value ${elo}`);
+                
+                // Set very low skill level for low rated bots
+                let skillLevel;
+                if (elo < 500) {
+                    skillLevel = 0;
+                } else if (elo < 1000) {
+                    skillLevel = Math.floor((elo - 500) / 250); // Even more gradual increase
+                } else if (elo < 1500) {
+                    skillLevel = Math.floor((elo - 1000) / 150) + 2;
+                } else {
+                    skillLevel = Math.min(20, Math.floor((elo - 1500) / 100) + 5);
+                }
+                
+                stockfish.postMessage(`setoption name Skill Level value ${skillLevel}`);
+                
+                // Log the settings being applied
+                console.log(`Bot: ${botName}, ELO: ${elo}, Skill Level: ${skillLevel}`);
+                
+                // Additional settings for weaker play
+                if (elo < 1000) {
+                    stockfish.postMessage('setoption name Contempt value 0');
+                    stockfish.postMessage('setoption name MultiPV value 1');
+                    stockfish.postMessage('setoption name Slow Mover value 10');
+                }
+                
+                // Set a time constraint for lower-rated bots
+                if (elo <= 500) {
+                    stockfish.postMessage('setoption name Move Overhead value 1000'); // 1 second overhead
+                    stockfish.postMessage('setoption name Minimum Thinking Time value 500'); // Minimum 0.5 second thinking time
+                }
+                
                 stockfish.postMessage('isready');
             }
         };

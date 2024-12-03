@@ -365,7 +365,7 @@ const BoardPage = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSelect = (bot) => {
+  const handleSelect = async (bot) => {
     setSelectedBot(bot.name);
     // Reset the game
     const newGame = new Chess();
@@ -375,11 +375,17 @@ const BoardPage = () => {
     setGameOver(false);
     setWinner(null);
     setMessages([]);
+    
     // If it's the Sicilian bot (Rookinator), player is always white, otherwise random
     const newPlayerColor = bot.name === 'Rookinator' ? 'white' : (Math.random() < 0.5 ? 'white' : 'black');
     setPlayerColor(newPlayerColor);
     // Set isPlayerTurn based on player color - true if white, false if black
     setIsPlayerTurn(newPlayerColor === 'white');
+
+    // Initialize Stockfish with correct rating for Stockfish-based bots
+    if (bot.logic === chessLogic3) {
+      await chessLogic3.initializeEngine(bot.name);
+    }
   };
 
   const resetGame = () => {
