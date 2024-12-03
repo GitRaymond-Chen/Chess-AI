@@ -297,8 +297,10 @@ const BoardPage = () => {
     setWinner(null);
     setMessages([]);
     // If it's the Sicilian bot (Bot 1), player is always white, otherwise random
-    setPlayerColor(bot.name === 'Bot 1' ? 'white' : (Math.random() < 0.5 ? 'white' : 'black'));
-    setIsPlayerTurn(true);
+    const newPlayerColor = bot.name === 'Bot 1' ? 'white' : (Math.random() < 0.5 ? 'white' : 'black');
+    setPlayerColor(newPlayerColor);
+    // Set isPlayerTurn based on player color - true if white, false if black
+    setIsPlayerTurn(newPlayerColor === 'white');
   };
 
   const resetGame = () => {
@@ -308,7 +310,8 @@ const BoardPage = () => {
     setMoveHistory([]);
     setGameOver(false);
     setWinner(null);
-    setIsPlayerTurn(true);
+    // Set isPlayerTurn based on current player color
+    setIsPlayerTurn(playerColor === 'white');
   };
 
   return (
