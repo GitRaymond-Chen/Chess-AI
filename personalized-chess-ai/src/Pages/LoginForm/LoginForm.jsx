@@ -46,8 +46,7 @@ const LoginForm = () => {
           setIsLogin(true);
 
           // handle redirect
-          console.log("Login successful");
-          alert("Login successful");
+          navigate("/board");
         } else {
           const errorData = await response.json();
           alert(`Error: ${errorData.error}`);
@@ -77,8 +76,7 @@ const LoginForm = () => {
           alert(result.message);
 
           // handle valid response / redirect (WIP)
-          console.log("Login successful");
-          alert("Login successful");
+          navigate("/board");
         } else {
           const errorData = await response.json();
           alert(`Error: ${errorData.error}`);
