@@ -9,28 +9,37 @@ const Profile = () => {
     const fileInputRef = useRef(null);
     const [elo, setElo] = useState(null); // State to store the fetched ELO
     const [error, setError] = useState(null);
-  
+
     useEffect(() => {
-      const fetchUserElo = async () => {
-        try {
-          const response = await fetch("http://localhost:5000/user-elo", { // Replace with your backend URL
-            method: "GET",
-            credentials: "include", // Include credentials for session-based authentication
-          });
-  
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || "Failed to fetch user ELO.");
-          }
-  
-          const data = await response.json();
-          setElo(data.elo); // Set the fetched ELO in state
-        } catch (err) {
-          setError(err.message);
-        }
-      };
-  
-      fetchUserElo();
+        const fetchUserElo = async () => {
+            try {
+                const token = localStorage.getItem("token"); // Assuming JWT is stored in localStorage
+
+                if (!token) {
+                    throw new Error("User not authenticated");
+                }
+
+                const response = await fetch("http://localhost:5000/user-elo", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`, // Send the token in the Authorization header
+                    },
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || "Failed to fetch user ELO.");
+                }
+
+                const data = await response.json();
+                setElo(data.elo); // Set the ELO value from the backend
+            } catch (err) {
+                setError(err.message); // Handle errors
+            }
+        };
+
+        fetchUserElo(); // Fetch the user's ELO when the component mounts
     }, []);
 
     // Sample ELO rating data - replace with actual data from your backend
